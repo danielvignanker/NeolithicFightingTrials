@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<style>
+canvas {
+    border:1px solid #d3d3d3;
+    background-color: #f1f1f1;
+}
+</style>
+</head>
+<body onload="startGame()">
+<script>
+
+var myGamePiece;
+var myObstacles = [];
+var myProjectiles = [];
+var myScore;
+
+
+
+function startGame() {
+    myGamePiece = new component(30, 30, "red", 10, 120);
+    myScore = new component("30px", "Consolas", "black", 280, 40, "text");
+    myGameArea.start();
+}
+
+var myGameArea = {
+    canvas : document.createElement("canvas"),
+    start : function() {
+        this.canvas.width = 480;
+        this.canvas.height = 270;
+        this.context = this.canvas.getContext("2d");
+        document.body.insertBefore(this.canvas, document.body.childNodes[0]);
+        this.frameNo = 0;
+        this.interval = setInterval(updateGameArea, 20);
+        },
+    clear : function() {
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+}
+
+function component(width, height, color, x, y, type) {
+    this.type = type;
+    this.score = 0;
+    this.width = width;
+    this.height = height;
+    this.speedX = 0;
+    this.speedY = 0;    
+    this.x = x;
+    this.y = y;
+    this.goalX = 0;
+    this.goalY = 0;
+    this.gravity = 0;
+    this.gravitySpeed = 0;
+    this.update = function() {
+        ctx = myGameArea.context;
+        if (this.type == "text") {
+            ctx.font = this.width + " " + this.height;
+            ctx.fillStyle = color;
+            ctx.fillText(this.text, this.x, this.y);
+        } else {
+            ctx.fillStyle = color;
+            ctx.fillRect(this.x, this.y, this.width, this.height);
+        }
+    }
+    this.newPos = function() {
+        this.gravitySpeed += this.gravity;
+        this.x += this.speedX;
+        this.y += this.speedY + this.gravitySpeed;
+        this.hitBottom();
+    }
+    this.hitBottom = function() {
+        var rockbottom = myGameArea.canvas.height - this.height;
+        if (this.y > rockbottom) {
+            this.y = rockbottom;
+            this.gravitySpeed = 0;
+        }
+    }
+    this.crashWith = function(otherobj) {
+        var myleft = this.x;
+        var myright = this.x + (this.width);
+        var mytop = this.y;
+        var mybottom = this.y + (this.height);
+        var otherleft = otherobj.x;
+        var otherright = otherobj.x + (otherobj.width);
+        var othertop = otherobj.y;
+        var otherbottom = otherobj.y + (otherobj.height);
+        var crash = true;
+        if ((mybottom < othertop) || (mytop > otherbottom) || (myright < otherleft) || (myleft > otherright)) {
+            crash = false;
+        }
+        return crash;
+    }
+}
+
+
+
+function updateGameArea() {
+    var x, height, gap, minHeight, maxHeight, minGap, maxGap;
+    for (i = 0; i < myObstacles.length; i += 1) {
+        if (myGamePiece.crashWith(myObstacles[i])) {
+        	
+            return
+            //myObstacles.splice(i, 1); 
+        } 
+    }
+    myGameArea.clear();
+    myGameArea.frameNo += 1;
+    if (myGameArea.frameNo == 1 || everyinterval(150)) {
+        x = myGameArea.canvas.width;
+        
+        minHeight = 20;
+        maxHeight = 200;
+        y = Math.floor(Math.random()*(maxHeight-minHeight+1)+minHeight);
+        
+        //make new obstacles
+        myObstacles.push(new component(30, 30, "green", x, y));
+        //alert(myObstacles.length);
+        
+    }
+    for (i = 0; i < myObstacles.length; i += 1) {
+    	//obstacles move left
+        myObstacles[i].x += -1;
+        
+        //obsticles move up or down
+        if (myGamePiece.y > myObstacles[i].y){
+         	myObstacles[i].y += 0.2;
+        }else if (myGamePiece.y < myObstacles[i].y){
+        	myObstacles[i].y -= 0.2;
+        }
+        
+        //if obstacle off screen -> delete
+        if(myObstacles[i].x < 0){
+        	myObstacles.splice(i, 1);
+        }
+        
+        for (j = 0; j < myProjectiles.length; j += 1){
+        	if (myObstacles[i].crashWith(myProjectiles[j])) {
+            	myObstacles.splice(i, 1);
+                myProjectiles.splice(j,1);
+        	}	
+        }
+        
+        myObstacles[i].update();
+    }
+    
+    for (i = 0; i < myProjectiles.length; i += 1){
+    	//compute direction
+        var yDiff = myProjectiles[i].goalY - myGamePiece.y;
+        var xDiff = myProjectiles[i].goalX - myGamePiece.x;
+        
+        myProjectiles[i].x += 2;
+        myProjectiles[i].y += yDiff/xDiff;
+        
+        
+        myProjectiles[i].update();
+    }
+    
+    
+    myScore.text="SCORE: " + myGameArea.frameNo;
+    myScore.update();
+    myGamePiece.newPos();
+    myGamePiece.update();
+}
+
+function everyinterval(n) {
+    if ((myGameArea.frameNo / n) % 1 == 0) {return true;}
+    return false;
+}
+
+function accelerate(n) {
+    myGamePiece.gravity = n;
+}
+
+function clickEvent(e){
+    
+    //make new obstacles
+    //myProjectiles.push(new component(10, 10, "blue", myGamePiece.x, myGamePiece.y));
+    myProjectiles.push(new component(10, 10, "blue", myGamePiece.x, myGamePiece.y));
+    myProjectiles[myProjectiles.length-1].goalX = e.clientX;
+    myProjectiles[myProjectiles.length-1].goalY = e.clientY;
+    
+    //alert(myProjectiles[myProjectiles.length-1].goalX);
+}
+
+document.addEventListener("click", clickEvent);
+
+</script>
+<br>
+
+<p>How long can you stay alive?</p>
+</body>
+</html>
